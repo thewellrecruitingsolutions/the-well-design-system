@@ -1,8 +1,10 @@
 # The Well Design System v1
 
 **Effective:** April 2026 brand refresh
+**Last updated:** 2026-05-16
 **Source of truth:** `Brand System/` folder on OneDrive (local — not in git)
 **Applies to:** The Vault · Content Studio · Sales Engine _(not Talent Plan)_
+**Repo visibility:** PUBLIC — do not commit secrets, API keys, or anon JWTs even though Supabase anon keys are designed to be public. The monthly audit's [OPUS_RERUN_QUEUE.md](../OPUS_RERUN_QUEUE.md) QUEUE-002 runs a gitleaks scan against full history.
 
 ---
 

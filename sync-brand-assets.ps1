@@ -22,28 +22,54 @@ $svgDir      = "$brandRoot\04 SVG Files"
 
 # SVG source files
 $logoSvgSrc  = "$svgDir\the-well-logo-gold-transparent.svg"   # full logo (mark + wordmark)
-# Note: the-well-mark.svg (ring mark only) is mastered in the Vault's public/ — not in Brand System.
-# The Vault is the canonical source for the mark SVG. Sync copies vault → other apps.
+$markSvgSrc  = "$svgDir\the-well-mark-gold.svg"               # ring mark only (no wordmark)
 $vaultPublic = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Claude Code\the-well-vault\public"
-$markSvgSrc  = "$vaultPublic\the-well-mark.svg"
+
+# PNG sources for apps that use raster logos (PDF generation, etc.)
+$logoBlackPng       = "$brandRoot\..\..\..\Brand System\01 Full Logo\the-well-logo-gold-on-black.png"
+$logoTransparentPng = "$brandRoot\..\..\..\Brand System\01 Full Logo\the-well-logo-gold-transparent.png"
 
 # ── App targets (add new apps here) ──────────────────────────────────────────
 
+$base = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Claude Code"
+
 $apps = @(
     @{
-        name   = "the-well-vault"
-        public = $vaultPublic
-        repo   = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Claude Code\the-well-vault"
+        name      = "the-well-vault"
+        public    = $vaultPublic
+        repo      = "$base\the-well-vault"
+        pngLogos  = $false
     },
     @{
-        name   = "the-well-content-studio"
-        public = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Claude Code\the-well-content-studio\studio\public"
-        repo   = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Claude Code\the-well-content-studio"
+        name      = "the-well-content-studio"
+        public    = "$base\the-well-content-studio\studio\public"
+        repo      = "$base\the-well-content-studio"
+        pngLogos  = $false
     },
     @{
-        name   = "the-well-salesengine"
-        public = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Claude Code\the-well-salesengine-tmp\public"
-        repo   = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Claude Code\the-well-salesengine-tmp"
+        name      = "the-well-salesengine-tmp"
+        public    = "$base\the-well-salesengine-tmp\public"
+        repo      = "$base\the-well-salesengine-tmp"
+        pngLogos  = $false
+    },
+    @{
+        name      = "talentplan-app"
+        public    = "$base\talentplan-app\public"
+        repo      = "$base\talentplan-app"
+        pngLogos  = $true    # also needs raster logo PNGs for PDF generation
+    },
+    @{
+        name      = "thewell-sales"
+        public    = "$base\thewell-sales\public"
+        repo      = "$base\thewell-sales"
+        pngLogos  = $true
+    },
+    @{
+        name      = "the-well-website"
+        public    = "$base\the-well-website"   # custom paths handled below
+        repo      = "$base\the-well-website"
+        pngLogos  = $false   # handled separately via website-specific paths
+        isWebsite = $true
     }
 )
 
@@ -67,44 +93,52 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 Write-Host ""
 
 foreach ($app in $apps) {
-    Write-Host "→ $($app.name)" -ForegroundColor Yellow
+    Write-Host "-> $($app.name)" -ForegroundColor Yellow
 
-    # Ensure public/ exists
-    if (-not (Test-Path $app.public)) {
-        New-Item -ItemType Directory -Path $app.public | Out-Null
-        Write-Host "  Created public/ directory"
-    }
+    if ($app.isWebsite) {
+        # Website has a different folder structure — copy to asset subdirs
+        $faviconDst = "$($app.public)\assets\favicons"
+        $logoDst    = "$($app.public)\assets\logos"
+        $markDst    = "$($app.public)\assets\logos\mark"
+        $svgDst     = "$($app.public)\assets\logos\svg"
+        $brandSrc   = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Brand System"
 
-    # Copy favicons
-    foreach ($f in $favicons) {
-        $src = "$faviconsDir\$f"
-        $dst = "$($app.public)\$f"
-        if (Test-Path $src) {
-            Copy-Item $src $dst -Force
-        } else {
-            Write-Warning "  Missing favicon source: $src"
+        foreach ($f in $favicons) {
+            Copy-Item "$faviconsDir\$f" "$faviconDst\$f" -Force
         }
-    }
-    Write-Host "  ✓ Favicons copied ($($favicons.Count) files)"
+        foreach ($f in @("the-well-logo-gold-on-black.png","the-well-logo-gold-on-ivory.png","the-well-logo-black-on-ivory.png","the-well-logo-gold-transparent.png")) {
+            Copy-Item "$brandSrc\01 Full Logo\$f" "$logoDst\$f" -Force
+        }
+        foreach ($f in @("the-well-mark-gold-on-black.png","the-well-mark-gold-on-ivory.png","the-well-mark-black-on-ivory.png","the-well-mark-gold-on-black-512.png","the-well-mark-gold-transparent-512.png")) {
+            Copy-Item "$brandSrc\02 Mark Only\$f" "$markDst\$f" -Force
+        }
+        foreach ($f in @("the-well-logo-gold-transparent.svg","the-well-logo-gold-on-black.svg","the-well-logo-gold-transparent-v2.svg")) {
+            Copy-Item "$svgDir\$f" "$svgDst\$f" -Force
+        }
+        Write-Host "  ok  website assets updated"
+    } else {
+        # Standard app: public/ gets favicons + SVGs
+        if (-not (Test-Path $app.public)) {
+            New-Item -ItemType Directory -Path $app.public | Out-Null
+        }
 
-    # Copy logo SVG (full logo — mark + wordmark)
-    if (Test-Path $logoSvgSrc) {
+        foreach ($f in $favicons) {
+            Copy-Item "$faviconsDir\$f" "$($app.public)\$f" -Force
+        }
+        Write-Host "  ok  favicons ($($favicons.Count))"
+
         Copy-Item $logoSvgSrc "$($app.public)\the-well-logo.svg" -Force
-        Write-Host "  ✓ the-well-logo.svg copied"
-    } else {
-        Write-Warning "  Missing logo SVG: $logoSvgSrc"
-    }
+        Write-Host "  ok  the-well-logo.svg"
 
-    # Copy mark SVG (from Vault — canonical ring-mark source)
-    if ($app.name -ne "the-well-vault") {
-        if (Test-Path $markSvgSrc) {
-            Copy-Item $markSvgSrc "$($app.public)\the-well-mark.svg" -Force
-            Write-Host "  ✓ the-well-mark.svg copied from Vault"
-        } else {
-            Write-Warning "  Missing mark SVG source: $markSvgSrc"
+        Copy-Item $markSvgSrc "$($app.public)\the-well-mark.svg" -Force
+        Write-Host "  ok  the-well-mark.svg"
+
+        # PNG logos for apps that use them (PDF generation)
+        if ($app.pngLogos) {
+            Copy-Item $logoBlackPng       "$($app.public)\the-well-logo.png" -Force
+            Copy-Item $logoTransparentPng "$($app.public)\the-well-logo-transparent.png" -Force
+            Write-Host "  ok  logo PNGs"
         }
-    } else {
-        Write-Host "  ✓ the-well-mark.svg — Vault is the source, skipping self-copy"
     }
 
     # Git commit + push
@@ -112,16 +146,16 @@ foreach ($app in $apps) {
     try {
         $status = git status --porcelain 2>&1
         if ($status) {
-            git add public/ | Out-Null
-            $changedFiles = ($status | Measure-Object).Count
-            git commit -m "chore: sync brand assets from Brand System ($changedFiles files updated)" | Out-Null
+            git add -A | Out-Null
+            $n = ($status | Measure-Object).Count
+            git commit -m "chore: sync brand assets from Brand System ($n files)" | Out-Null
             git push origin main | Out-Null
-            Write-Host "  ✓ Committed + pushed ($changedFiles changed files)" -ForegroundColor Green
+            Write-Host "  pushed  ($n files)" -ForegroundColor Green
         } else {
-            Write-Host "  ✓ No changes — assets already up to date" -ForegroundColor DarkGray
+            Write-Host "  no changes" -ForegroundColor DarkGray
         }
     } catch {
-        Write-Warning "  Git error in $($app.name): $_"
+        Write-Warning "  git error: $_"
     }
     Pop-Location
 
