@@ -143,7 +143,8 @@ icons: {
 ```ts
 colors: {
   well: {
-    bg: "#1A1A1A",   deeper: "#141414",  surface: "#272729",
+    // bg/deeper/surface are aliases of the canonical --canvas / --canvas-2 / --card-bg tokens (see Colors table)
+    bg: "#161819",   deeper: "#1B1F20",  surface: "#232729",
     gold: "#BE9E44", "gold-hover": "#D4AF50", "gold-dim": "#9A7F36",
     teal: "#2A4C4A", "teal-light": "#3A6460",
     ivory: "#F8F5F0", muted: "#C2BDB4", dim: "#8E8378", attr: "#787870",
