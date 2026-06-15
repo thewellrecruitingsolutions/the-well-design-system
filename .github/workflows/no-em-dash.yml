@@ -1,0 +1,27 @@
+name: No Em Dash (Lint)
+
+# Deterministic guardrail for the house no-dash rule. Fails a PR that introduces
+# an em dash or en dash in any text file. Fast, no secrets, no network.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  no-em-dash:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0   # need history so --changed can diff against base
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11"
+      - name: Check for em/en dashes in changed files
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python scripts/ci/check_no_em_dash.py --changed --base "origin/$BASE_REF"
