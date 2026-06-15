@@ -22,4 +22,6 @@ jobs:
         with:
           python-version: "3.11"
       - name: Check for em/en dashes in changed files
-        run: python scripts/ci/check_no_em_dash.py --changed --base "origin/${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python scripts/ci/check_no_em_dash.py --changed --base "origin/$BASE_REF"

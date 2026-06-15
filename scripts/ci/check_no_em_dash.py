@@ -78,7 +78,7 @@ def _changed_files(base: str) -> list[Path]:
         ).stdout
     except subprocess.CalledProcessError as e:
         print(f"git diff failed: {e}", file=sys.stderr)
-        return []
+        sys.exit(2)
     return [Path(p) for p in out.splitlines() if p.strip()]
 
 
