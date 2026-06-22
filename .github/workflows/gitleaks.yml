@@ -1,0 +1,33 @@
+name: Secret Scanning (gitleaks)
+
+# Open-source gitleaks CLI binary (NOT the gitleaks-action wrapper, which requires a
+# paid GITLEAKS_LICENSE for org repos and false-fails every PR). The CLI has no such
+# requirement, so this gate is free. Blocks any PR that introduces a detectable secret.
+# Standardized across all org repos 2026-06-22 (secrets-centralization capstone).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: Scan for secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks CLI (open source, no license)
+        run: |
+          VERSION=8.18.4
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o /tmp/gitleaks.tgz
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          sudo mv /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+      - name: Scan working tree for secrets
+        run: gitleaks detect --source . --no-git --redact --no-banner --exit-code 1
