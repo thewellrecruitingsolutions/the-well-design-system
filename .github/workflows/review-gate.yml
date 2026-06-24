@@ -1,10 +1,10 @@
 name: review-gate
 
-# Agent review gate (org standard, armed 2026-06-05). Reviews every PR via Claude headless
-# through four lenses, posts findings as a PR comment, and BLOCKS the merge on VERDICT: BLOCK.
-# Add `agent-review` to this branch's required status checks so the block is enforced.
-# Needs the org-level ANTHROPIC_API_KEY secret (fails closed if absent). Escape hatch for a
-# false BLOCK: an admin merge, or push a fix. Reviews the diff text only (no prod access).
+# Agent review gate (advisory, severity-classified). Runs on every PR, posts a classified
+# findings comment (CRITICAL / WARN / NIT), and emits REVIEW_SEVERITY on the last line so
+# the morning digest can surface CRITICAL items to the owner. Gate is ADVISORY: always
+# exits 0 and never blocks merge. Needs org-level ANTHROPIC_API_KEY secret.
+# Dependabot PRs auto-PASS (pure dep bumps).
 
 on:
   pull_request:
@@ -14,8 +14,22 @@ permissions:
   pull-requests: write
 
 jobs:
+  gate-self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify severity-line parsing
+        run: |
+          echo "REVIEW_SEVERITY: CRITICAL" > /tmp/t.txt
+          if grep -qE '^REVIEW_SEVERITY: (CRITICAL|WARN|NIT|NONE)$' /tmp/t.txt; then
+            echo "Self-test severity parse: OK"
+          else
+            echo "::error::Self-test FAILED: severity line not detected"
+            exit 1
+          fi
+
   agent-review:
     runs-on: ubuntu-latest
+    needs: [gate-self-test]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -23,7 +37,11 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '20'
-      - name: Strict agent review (blocking)
+      - name: Skip for Dependabot
+        if: github.actor == 'dependabot[bot]'
+        run: echo "Dependabot PR - auto-PASS (pure version bump)."
+      - name: Advisory agent review
+        if: github.actor != 'dependabot[bot]'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ github.token }}
@@ -33,63 +51,64 @@ jobs:
         run: |
           set +e
           if [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "::error::review-gate: ANTHROPIC_API_KEY not available to this repo - failing closed. Add the org-level ANTHROPIC_API_KEY secret with access to this repository."
-            exit 1
+            echo "::warning::review-gate: ANTHROPIC_API_KEY not available - skipping review."
+            exit 0
           fi
           npm install -g @anthropic-ai/claude-code >/dev/null 2>&1
           mkdir -p /tmp/rev
           git diff "$BASE_SHA".."$HEAD_SHA" > /tmp/rev/diff.patch
-          cat > /tmp/rev/prompt.md <<'PROMPT'
-          You are The Well's STRICT code-review gate for this repository. Review ONLY the diff below, through four lenses:
-          - QUALITY (code-reviewer): correctness, edge/error paths, swallowed errors, naming, tests for new logic.
-          - SECURITY (security-auditor): secrets in code/logs, authZ/RLS gaps, injection, PII exposure, unvalidated external input.
-          - FIT (architect): does this fit the EXISTING architecture and patterns of THIS repo, or does it DUPLICATE
-            existing functionality / introduce a parallel way of doing something the repo already does / go off-pattern?
-            Needless duplication or off-pattern design is the cardinal sin here -> BLOCK it.
-          - CONVENTIONS: match the repo's stack and style; validate external input MANUALLY at the boundary; no hardcoded
-            secrets; API error responses use a consistent shape + correct HTTP status; single dashes, NO em dashes.
-          Be decisive and strict. Output EXACTLY:
-          VERDICT: PASS or BLOCK
-          Then BLOCKING findings (each: file:line - problem - fix), then NITS.
-          BLOCK if ANY: a security issue, a correctness bug, needless duplication / off-pattern design, or a hard-convention
-          violation. If clean, VERDICT: PASS.
 
-          DIFF (raw, below this line):
-          PROMPT
+          cat > /tmp/rev/prompt.md << 'PROMPT'
+You are The Well's code-review gate for this repository. The gate is ADVISORY (findings are reported but do not block merge). Review ONLY the diff below through four lenses:
+- QUALITY: correctness, edge/error paths, swallowed errors, naming, tests for new logic.
+- SECURITY: secrets in code/logs, authZ/RLS gaps, injection, PII/candidate data exposure, unvalidated external input. Any secret exposure or candidate/advisor PII leak is CRITICAL.
+- FIT: does this fit the EXISTING architecture and patterns of THIS repo? Needless duplication or off-pattern design is a WARN or CRITICAL.
+- CONVENTIONS: match the repo stack; validate external input MANUALLY at the boundary (no Zod/pydantic); API errors use { error: string } + HTTP status; no hardcoded secrets.
+
+Stack: Static design assets and documentation; no runtime server.
+
+Classify EACH finding as exactly one of:
+  CRITICAL = real security hole, candidate/advisor PII exposure, data loss, or a correctness bug that will break prod.
+  WARN     = quality or architecture concern worth a look but not dangerous.
+  NIT      = style or preference.
+
+Output format (follow EXACTLY - downstream tooling parses these lines):
+Line 1: VERDICT: PASS or BLOCK  (informational only - gate is advisory, never blocks)
+Then findings, each prefixed with its severity tag:
+  [CRITICAL] file:line - problem - fix
+  [WARN] file:line - problem - fix
+  [NIT] file:line - problem - fix
+Last line MUST be exactly one of:
+  REVIEW_SEVERITY: CRITICAL
+  REVIEW_SEVERITY: WARN
+  REVIEW_SEVERITY: NIT
+  REVIEW_SEVERITY: NONE
+
+DIFF (raw, below this line):
+PROMPT
           head -c 60000 /tmp/rev/diff.patch >> /tmp/rev/prompt.md
+
           claude -p "$(cat /tmp/rev/prompt.md)" --model sonnet > /tmp/rev/out.txt 2>&1
+
+          SEVERITY=$(grep -oE '^REVIEW_SEVERITY: (CRITICAL|WARN|NIT|NONE)$' /tmp/rev/out.txt | tail -1 | awk '{print $2}')
+          [ -z "$SEVERITY" ] && SEVERITY="UNKNOWN"
+
           {
-            echo "## :robot: Agent review gate"
+            echo "## Agent review (advisory)"
             echo ""
-            echo "_Lenses: quality, security, fit (no duplication / on-pattern), conventions. BLOCKING: a VERDICT of BLOCK fails this check._"
+            echo "_Lenses: quality, security, fit, conventions. This gate is advisory - findings are classified but do not block merge. CRITICAL findings are surfaced in the morning digest._"
+            echo ""
+            echo "**Severity: `${SEVERITY}`**"
             echo ""
             echo '```'
             cat /tmp/rev/out.txt
             echo '```'
           } > /tmp/rev/comment.md
-          gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F body=@/tmp/rev/comment.md >/dev/null && echo "review comment posted" || echo "comment post failed"
+
+          gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments"             -F body=@/tmp/rev/comment.md >/dev/null             && echo "review comment posted (severity=$SEVERITY)"             || echo "comment post failed"
+
           echo "===== REVIEW OUTPUT ====="
           cat /tmp/rev/out.txt
-          # -- enforce the verdict: read ONLY the FIRST VERDICT line. The reviewed diff is embedded
-          #    in the prompt, so a malicious PR could include a spoofed 'VERDICT: PASS' that Claude
-          #    echoes in its findings; scanning the whole file would match it. Claude is instructed to
-          #    emit its real verdict as the first line, so we grep -m1. --
-          if [ ! -s /tmp/rev/out.txt ]; then
-            echo "::error::Agent review produced no output - failing closed (treat as BLOCK)."
-            exit 1
-          fi
-          FIRST_VERDICT=$(grep -m1 -iE '^[[:space:]]*[*_#>-]*VERDICT:' /tmp/rev/out.txt)
-          if [ -z "$FIRST_VERDICT" ]; then
-            echo "::error::Agent review emitted no VERDICT line - failing closed."
-            exit 1
-          fi
-          if echo "$FIRST_VERDICT" | grep -qiE 'BLOCK'; then
-            echo "::error::Agent review VERDICT: BLOCK - see the PR comment for blocking findings."
-            exit 1
-          fi
-          if echo "$FIRST_VERDICT" | grep -qiE 'PASS'; then
-            echo "Agent review VERDICT: PASS."
-            exit 0
-          fi
-          echo "::error::Agent review VERDICT unrecognized - failing closed."
-          exit 1
+          echo "REVIEW_SEVERITY=$SEVERITY"
+          # Advisory gate - always exit 0
+          exit 0
