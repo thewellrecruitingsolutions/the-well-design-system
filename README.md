@@ -36,9 +36,45 @@ Dark backgrounds. Gold used sparingly. Generous negative space. Never gradients,
 | `--attr-grey` | `#787870` | Labels, footnotes |
 | `--text-muted` | `#9A9690` | Placeholder, ghost UI |
 | `--danger` | `#C0524B` | Errors, destructive actions |
+| `--color-scheme` | `dark` / `light` | Native UA chrome (date pickers, form controls) — must track the active theme, see rule below |
 
 All tokens are defined as CSS custom properties in each app's `globals.css`.
 Tailwind v3 apps also expose them as `well-*` utilities (e.g. `bg-well-gold`, `text-well-ivory`).
+
+---
+
+## Theme-paired tokens (light/dark) — required rule
+
+Apps with a light/dark toggle (Sales Engine's two-skin light "tool" skin;
+see `[data-theme="light"]` in that app's `globals.css`) re-declare the SAME
+`--token` names inside a `[data-theme="light"]` block so every `var(--…)`
+reference flips automatically. **Never hardcode a literal color, or a
+literal browser-chrome hint like CSS `colorScheme`, that bypasses this.** A
+hardcoded value looks correct in whichever theme the author was looking at
+and goes invisible in the other one — this is exactly what broke the
+Log-a-call date field (Sales Engine PR #295) and recurred a second time in
+the Workboard reschedule field the same week.
+
+Applies to:
+- **Foreground/background pairs** — always read `var(--ivory)` /
+  `var(--canvas)` etc., never `"#fff"` / `"#000"` or a bare hex.
+- **Native UA chrome hints** — `colorScheme` (date/time pickers, form
+  controls) must read a theme-aware token, not a literal `"dark"` /
+  `"light"`. Add `--color-scheme: dark;` to `:root` and
+  `--color-scheme: light;` to `[data-theme="light"]`, then reference it as
+  `colorScheme: "var(--color-scheme, dark)"` in the component. Never write
+  `colorScheme: "dark"` (or `"light"`) directly unless the surface is
+  provably theme-independent (e.g. a client-facing panel that always
+  re-asserts `data-theme="dark"` regardless of the app-wide toggle) — and if
+  so, comment why.
+- **CI enforcement** — any app with a light/dark toggle should carry a
+  Playwright suite that renders its interactive surfaces in both themes and
+  asserts (a) WCAG AA text contrast (≥4.5:1) via computed-style sampling and
+  (b) that every `<input>`'s computed `color-scheme` matches the active
+  theme. See `the-well-salesengine/e2e/contrast.spec.ts` for the reference
+  implementation — copy its `checkSurfaceContrast` /
+  `checkColorSchemeMatchesTheme` helpers into new apps rather than
+  reinventing them.
 
 ---
 
