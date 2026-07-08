@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/hooks/collision_check.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
