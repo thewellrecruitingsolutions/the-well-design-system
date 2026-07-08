@@ -15,23 +15,27 @@
 $ErrorActionPreference = "Stop"
 
 # ── Paths ────────────────────────────────────────────────────────────────────
+# $base defaults to a sibling "Claude Code" folder next to this script's parent
+# Brand System directory. Override by setting $env:WELL_CLAUDE_CODE_ROOT before
+# running, e.g.:
+#   $env:WELL_CLAUDE_CODE_ROOT = "D:\Some\Other\Path\Claude Code"
 
 $brandRoot  = $PSScriptRoot   # this folder — Brand System/
 $faviconsDir = "$brandRoot\03 Favicons"
 $svgDir      = "$brandRoot\04 SVG Files"
 
+$base = if ($env:WELL_CLAUDE_CODE_ROOT) { $env:WELL_CLAUDE_CODE_ROOT } else { "$brandRoot\..\Claude Code" }
+
 # SVG source files
 $logoSvgSrc  = "$svgDir\the-well-logo-gold-transparent.svg"   # full logo (mark + wordmark)
 $markSvgSrc  = "$svgDir\the-well-mark-gold.svg"               # ring mark only (no wordmark)
-$vaultPublic = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Claude Code\the-well-vault\public"
+$vaultPublic = "$base\the-well-vault\public"
 
 # PNG sources for apps that use raster logos (PDF generation, etc.)
 $logoBlackPng       = "$brandRoot\..\..\..\Brand System\01 Full Logo\the-well-logo-gold-on-black.png"
 $logoTransparentPng = "$brandRoot\..\..\..\Brand System\01 Full Logo\the-well-logo-gold-transparent.png"
 
 # ── App targets (add new apps here) ──────────────────────────────────────────
-
-$base = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Claude Code"
 
 $apps = @(
     @{
@@ -101,7 +105,7 @@ foreach ($app in $apps) {
         $logoDst    = "$($app.public)\assets\logos"
         $markDst    = "$($app.public)\assets\logos\mark"
         $svgDst     = "$($app.public)\assets\logos\svg"
-        $brandSrc   = "C:\Users\scper\OneDrive - The Well Recruiting Solutions\Documents - Leadership\Cowork Folder\Brand System"
+        $brandSrc   = "$base\..\Brand System"
 
         foreach ($f in $favicons) {
             Copy-Item "$faviconsDir\$f" "$faviconDst\$f" -Force
