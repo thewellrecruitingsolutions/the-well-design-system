@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # This repo has no package.json / npm dependencies (see ARCHITECTURE.md) - the only
+  # "dependency" surface is the GitHub Actions used in .github/workflows/. Keeping
+  # those pinned-by-SHA actions current is still worth automating.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

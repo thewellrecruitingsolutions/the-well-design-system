@@ -1,0 +1,5 @@
+# Default owner for this repo.
+# This repo is PUBLIC (brand tokens/fonts/logos/scaffolding guide, no secrets, no
+# backend) — see SECURITY.md. CODEOWNERS here is a review-routing convenience, not a
+# security boundary.
+* @scperry22
