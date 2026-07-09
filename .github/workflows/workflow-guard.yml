@@ -1,0 +1,92 @@
+# Closes chaos-drill finding CHAOS-C05 (SECURITY_FINDINGS.md / CHAOS_CHECKLIST.md):
+# gitleaks.yml only catches literal secret values -- not GitHub Actions
+# expressions like ${{ secrets.X }} that get echoed, printed, or written out
+# at runtime. This workflow is a required status check that scans for exactly
+# that leak class.
+#
+# History: this workflow originally also had a review-required-if-workflow-changed
+# job that blocked any PR touching .github/workflows/** or CODEOWNERS behind a
+# human APPROVED review. That job was removed 2026-07-07 -- Steve's standing
+# decision (feedback_no_pr_review_gate) is that the ONLY acceptable workflow-
+# tamper control is this mechanical, no-human-in-the-loop scan. The review job
+# had accidentally been left as the required branch-protection check instead of
+# this one, forcing Steve/Brandon to rubber-stamp-approve routine workflow PRs
+# (e.g. #1469) for no security benefit. Fixed by making this job the required
+# check and deleting the review job outright so it can't recur.
+#
+#   secret-expression-leak-scan: fails if any workflow step's `run:` / `echo`
+#   config interpolates a `${{ secrets.* }}` expression into stdout/stderr, a
+#   file redirect, `GITHUB_OUTPUT`/`GITHUB_ENV`/`GITHUB_STEP_SUMMARY`, or an
+#   uploaded artifact path. Complements gitleaks (literal values) with the
+#   expression-based leak class gitleaks structurally cannot see.
+
+name: workflow-guard
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  secret-expression-leak-scan:
+    name: workflow-guard / secret-expression-leak-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Self-test (known-bad fixture must be caught, known-good must pass)
+        run: |
+          set -e
+          tmp=$(mktemp -d)
+          mkdir -p "$tmp/bad" "$tmp/good"
+
+          # Built by concatenating the '${{' / '}}' delimiters at runtime (rather
+          # than writing the literal sequence in this YAML file) so GitHub Actions'
+          # expression parser does not evaluate/redact them before bash ever runs -
+          # this file must contain the literal fixture text, not a real expression.
+          OPEN='$'"{{"
+          CLOSE='}}'
+          EXPR="${OPEN} secrets.SUPABASE_SERVICE_ROLE_KEY ${CLOSE}"
+
+          {
+            printf '%s\n' 'name: bad'
+            printf '%s\n' 'on: push'
+            printf '%s\n' 'jobs:'
+            printf '%s\n' '  x:'
+            printf '%s\n' '    runs-on: ubuntu-latest'
+            printf '%s\n' '    steps:'
+            printf '%s\n' "      - run: echo \"${EXPR}\""
+          } > "$tmp/bad/leak.yml"
+
+          {
+            printf '%s\n' 'name: good'
+            printf '%s\n' 'on: push'
+            printf '%s\n' 'jobs:'
+            printf '%s\n' '  x:'
+            printf '%s\n' '    runs-on: ubuntu-latest'
+            printf '%s\n' '    steps:'
+            printf '%s\n' '      - run: python3 do_thing.py'
+            printf '%s\n' '        env:'
+            printf '%s\n' "          TOKEN: ${EXPR}"
+          } > "$tmp/good/safe.yml"
+
+          if python3 scripts/security/scan_workflow_secret_leaks.py "$tmp/bad"; then
+            echo "ERROR: scanner did not catch the known-bad echo-secret fixture"
+            exit 1
+          fi
+          echo "Self-test passed: known-bad fixture correctly rejected."
+
+          if ! python3 scripts/security/scan_workflow_secret_leaks.py "$tmp/good"; then
+            echo "ERROR: scanner false-positived on a safe env:-only secret usage"
+            exit 1
+          fi
+          echo "Self-test passed: known-good fixture correctly accepted."
+
+      - name: Scan workflow files for secrets.* expressions leaked to output
+        run: python3 scripts/security/scan_workflow_secret_leaks.py .github/workflows
