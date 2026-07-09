@@ -1,0 +1,87 @@
+name: quality
+
+# This repo has no package.json, no build step, and no test suite (see
+# ARCHITECTURE.md - it is static docs + CSS-token references + a couple of
+# stdlib-only Python scripts). "Quality" here means: the two CI scripts under
+# scripts/ stay syntactically valid and pass their own self-tests, and markdown
+# doesn't silently rot. This deliberately does NOT reinvent no-em-dash.yml,
+# gitleaks.yml, or workflow-guard.yml, which already cover content/secret linting.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  python-syntax-check:
+    name: quality / python-syntax-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Compile-check every tracked .py file
+        run: |
+          set -e
+          found=0
+          while IFS= read -r -d '' f; do
+            found=1
+            echo "Checking $f"
+            python3 -m py_compile "$f"
+          done < <(git ls-files -z '*.py')
+          if [ "$found" -eq 0 ]; then
+            echo "No Python files tracked - nothing to check."
+          fi
+
+      - name: Run scan_workflow_secret_leaks.py self-test
+        run: |
+          python3 - <<'PYEOF'
+          import subprocess, sys
+          # Re-run workflow-guard's own self-test logic against real workflow
+          # files as a smoke test that the scanner still imports/runs cleanly.
+          result = subprocess.run(
+              ["python3", "scripts/security/scan_workflow_secret_leaks.py", ".github/workflows"],
+              capture_output=True, text=True,
+          )
+          print(result.stdout)
+          print(result.stderr, file=sys.stderr)
+          sys.exit(result.returncode)
+          PYEOF
+
+  markdown-link-sanity:
+    name: quality / markdown-relative-link-sanity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Check relative markdown links resolve to a real file
+        # Only checks links that stay inside this repo (../ links that escape the repo
+        # root are expected - e.g. README.md's reference to the sibling claude-ops
+        # repo's OPUS_RERUN_QUEUE.md, which only resolves when both repos are checked
+        # out side by side and is never valid as a same-repo CI check).
+        run: |
+          repo_root=$(pwd)
+          fail=0
+          while IFS= read -r -d '' f; do
+            dir=$(dirname "$f")
+            while read -r link; do
+              [ -z "$link" ] && continue
+              target="$dir/$link"
+              resolved=$(readlink -f -- "$target" 2>/dev/null || true)
+              if [ -z "$resolved" ] || [[ "$resolved" != "$repo_root"/* ]]; then
+                continue  # escapes this repo (e.g. a sibling-repo cross-reference) - not our concern
+              fi
+              if [ ! -e "$target" ]; then
+                echo "::error file=$f::broken relative link -> $link"
+                fail=1
+              fi
+            done < <(grep -oE '\]\(\.{1,2}/[^)]+\)' "$f" 2>/dev/null | sed -E 's/^\]\(([^)]+)\)$/\1/')
+          done < <(git ls-files -z '*.md')
+          exit "$fail"

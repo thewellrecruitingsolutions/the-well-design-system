@@ -1,0 +1,35 @@
+name: security
+
+# This repo already runs gitleaks.yml (literal secret scan) and workflow-guard.yml
+# (secret-expression-leak scan) on every push/PR - see SELF_PENTEST_the-well-design-system.md
+# for why those two cover this repo's realistic attack surface (no backend, no auth, no
+# build/publish pipeline). This workflow adds the one gap those two don't close:
+# scanning this repo's own GitHub Actions definitions for known-risky patterns
+# (unpinned third-party actions, script-injection-prone ${{ github.event.* }}
+# interpolation directly into a `run:` shell string) via zizmor, a purpose-built static
+# analyzer for GitHub Actions workflows.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+  schedule:
+    - cron: "0 7 * * 1" # weekly, Monday - catches newly-disclosed advisories even with no PR
+
+permissions:
+  contents: read
+
+jobs:
+  zizmor:
+    name: security / zizmor-workflow-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Install zizmor
+        run: pip install zizmor
+
+      - name: Scan workflows
+        run: zizmor --persona=pedantic .github/workflows
