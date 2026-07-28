@@ -234,7 +234,8 @@ Checklist when creating a new The Well web app:
 - Never use the word "platform"
 - No personalization fields (no recipient name, date, presenter)
 - Stress communication as a partnership value
-- Stats: 44 Days Median Time-to-Fill · 90+ RIA Firms Served
+- Stats: 55 Days Median Time-to-Fill · 118+ RIA Firms Served
+  (the firm count is live: re-check `firms_served_count()` in Supabase before print)
 - AUM range: always $200M to $50B+
 
 ---
