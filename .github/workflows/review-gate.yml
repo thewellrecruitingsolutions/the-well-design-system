@@ -58,34 +58,41 @@ jobs:
           mkdir -p /tmp/rev
           git diff "$BASE_SHA".."$HEAD_SHA" > /tmp/rev/diff.patch
 
+          # INDENTATION INVARIANT - do not "tidy" the heredoc below to column 0.
+          # YAML strips a block scalar's common indent, so the body and the PROMPT
+          # terminator reach bash at column 0 even though they are indented here.
+          # De-indenting them in the FILE ends the block scalar early and makes this
+          # workflow unparseable - that was the 2026-06-24 breakage, which silently
+          # disabled the gate for 7.5 weeks. Every line in this run: block must stay
+          # at or beyond this baseline indent.
           cat > /tmp/rev/prompt.md << 'PROMPT'
-You are The Well's code-review gate for this repository. The gate is ADVISORY (findings are reported but do not block merge). Review ONLY the diff below through four lenses:
-- QUALITY: correctness, edge/error paths, swallowed errors, naming, tests for new logic.
-- SECURITY: secrets in code/logs, authZ/RLS gaps, injection, PII/candidate data exposure, unvalidated external input. Any secret exposure or candidate/advisor PII leak is CRITICAL.
-- FIT: does this fit the EXISTING architecture and patterns of THIS repo? Needless duplication or off-pattern design is a WARN or CRITICAL.
-- CONVENTIONS: match the repo stack; validate external input MANUALLY at the boundary (no Zod/pydantic); API errors use { error: string } + HTTP status; no hardcoded secrets.
+          You are The Well's code-review gate for this repository. The gate is ADVISORY (findings are reported but do not block merge). Review ONLY the diff below through four lenses:
+          - QUALITY: correctness, edge/error paths, swallowed errors, naming, tests for new logic.
+          - SECURITY: secrets in code/logs, authZ/RLS gaps, injection, PII/candidate data exposure, unvalidated external input. Any secret exposure or candidate/advisor PII leak is CRITICAL.
+          - FIT: does this fit the EXISTING architecture and patterns of THIS repo? Needless duplication or off-pattern design is a WARN or CRITICAL.
+          - CONVENTIONS: match the repo stack; validate external input MANUALLY at the boundary (no Zod/pydantic); API errors use { error: string } + HTTP status; no hardcoded secrets.
 
-Stack: Static design assets and documentation; no runtime server.
+          Stack: Static design assets and documentation; no runtime server.
 
-Classify EACH finding as exactly one of:
-  CRITICAL = real security hole, candidate/advisor PII exposure, data loss, or a correctness bug that will break prod.
-  WARN     = quality or architecture concern worth a look but not dangerous.
-  NIT      = style or preference.
+          Classify EACH finding as exactly one of:
+            CRITICAL = real security hole, candidate/advisor PII exposure, data loss, or a correctness bug that will break prod.
+            WARN     = quality or architecture concern worth a look but not dangerous.
+            NIT      = style or preference.
 
-Output format (follow EXACTLY - downstream tooling parses these lines):
-Line 1: VERDICT: PASS or BLOCK  (informational only - gate is advisory, never blocks)
-Then findings, each prefixed with its severity tag:
-  [CRITICAL] file:line - problem - fix
-  [WARN] file:line - problem - fix
-  [NIT] file:line - problem - fix
-Last line MUST be exactly one of:
-  REVIEW_SEVERITY: CRITICAL
-  REVIEW_SEVERITY: WARN
-  REVIEW_SEVERITY: NIT
-  REVIEW_SEVERITY: NONE
+          Output format (follow EXACTLY - downstream tooling parses these lines):
+          Line 1: VERDICT: PASS or BLOCK  (informational only - gate is advisory, never blocks)
+          Then findings, each prefixed with its severity tag:
+            [CRITICAL] file:line - problem - fix
+            [WARN] file:line - problem - fix
+            [NIT] file:line - problem - fix
+          Last line MUST be exactly one of:
+            REVIEW_SEVERITY: CRITICAL
+            REVIEW_SEVERITY: WARN
+            REVIEW_SEVERITY: NIT
+            REVIEW_SEVERITY: NONE
 
-DIFF (raw, below this line):
-PROMPT
+          DIFF (raw, below this line):
+          PROMPT
           head -c 60000 /tmp/rev/diff.patch >> /tmp/rev/prompt.md
 
           claude -p "$(cat /tmp/rev/prompt.md)" --model sonnet > /tmp/rev/out.txt 2>&1
