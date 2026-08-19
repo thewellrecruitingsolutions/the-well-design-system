@@ -58,6 +58,13 @@ jobs:
           mkdir -p /tmp/rev
           git diff "$BASE_SHA".."$HEAD_SHA" > /tmp/rev/diff.patch
 
+          # INDENTATION INVARIANT - do not "tidy" the heredoc below to column 0.
+          # YAML strips a block scalar's common indent, so the body and the PROMPT
+          # terminator reach bash at column 0 even though they are indented here.
+          # De-indenting them in the FILE ends the block scalar early and makes this
+          # workflow unparseable - that was the 2026-06-24 breakage, which silently
+          # disabled the gate for 7.5 weeks. Every line in this run: block must stay
+          # at or beyond this baseline indent.
           cat > /tmp/rev/prompt.md << 'PROMPT'
           You are The Well's code-review gate for this repository. The gate is ADVISORY (findings are reported but do not block merge). Review ONLY the diff below through four lenses:
           - QUALITY: correctness, edge/error paths, swallowed errors, naming, tests for new logic.
