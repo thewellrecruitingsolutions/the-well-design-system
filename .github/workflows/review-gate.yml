@@ -68,6 +68,13 @@ You are The Well's code-review gate for this repository. The gate is ADVISORY (f
 Stack: Static design assets and documentation; no runtime server.
 
 Classify EACH finding as exactly one of:
+      - name: Log Claude cost
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python3 .github/scripts/log_claude_cost.py
   CRITICAL = real security hole, candidate/advisor PII exposure, data loss, or a correctness bug that will break prod.
   WARN     = quality or architecture concern worth a look but not dangerous.
   NIT      = style or preference.
