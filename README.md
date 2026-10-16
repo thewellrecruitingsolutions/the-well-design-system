@@ -230,7 +230,7 @@ Checklist when creating a new The Well web app:
 
 ## Copy rules (applies to all UI copy in all apps)
 
-- No em dashes — use hyphens
+- No em dashes in sales and marketing copy - use hyphens
 - Never use the word "platform"
 - No personalization fields (no recipient name, date, presenter)
 - Stress communication as a partnership value

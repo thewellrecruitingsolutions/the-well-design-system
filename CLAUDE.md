@@ -1,6 +1,6 @@
 # the-well-design-system
 
-> Universal rules (em-dash ban, migration idempotency, PR workflow) live in ~/.claude/CLAUDE.md and apply here automatically.
+> Universal rules (dash policy, migration idempotency, PR workflow) live in ~/.claude/CLAUDE.md and apply here automatically.
 
 ## Accuracy - all humans and all agents
 
