@@ -15,9 +15,9 @@ lives in `claude-ops/PARALLEL_WORK.md`.
   infrastructure details, even ones that look harmless (see `SECURITY.md`). Supabase
   anon keys are the one exception (designed to be public) but avoid them here anyway
   since this repo has no reason to reference any backend.
-- No em dashes or en dashes in outbound-facing copy (`.md`/`.txt` files under
-  content/email/template/outbound-style directories). Plain hyphens only. Enforced by
-  `.github/workflows/no-em-dash.yml`.
+- Dashes: em and en dashes are fine everywhere except sales and marketing copy, QFS
+  client reply drafts and candidate-facing messages (2026-10-16 dash policy, full text
+  in `~/.claude/CLAUDE.md`). This repo holds none of that copy.
 
 ## Making a change
 
@@ -38,7 +38,8 @@ lives in `claude-ops/PARALLEL_WORK.md`.
 ## CI gates on every PR
 
 - `gitleaks` — literal secret scanning (push + PR).
-- `no-em-dash` — content lint on changed files.
+- `no-em-dash` — kept as a required check name; always passes here (no sales/marketing
+  copy in this repo, see the 2026-10-16 dash policy).
 - `workflow-guard` — secret-expression leak scan on `.github/workflows/**` (required
   check).
 - `review-gate` — advisory Claude-based review (quality/security/fit/conventions

@@ -10,4 +10,4 @@
 
 - [ ] No secrets, API keys, tokens, or internal-only credentials are included in this PR.
 - [ ] No internal-only paths, employee names/usernames, or non-public URLs are included (this repo is PUBLIC).
-- [ ] No em dashes in outbound-facing copy (content/email/template/outbound dirs).
+- [ ] No em/en dashes in sales/marketing copy, QFS client replies or candidate-facing messages (dashes are fine everywhere else).

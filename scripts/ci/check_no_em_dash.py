@@ -2,8 +2,10 @@
 """
 check_no_em_dash.py - deterministic guardrail for the house no-dash rule.
 
-Scope (2026-06-24): em/en dashes are banned ONLY in outbound-facing copy.
-That means .md/.mdx/.txt files whose path contains one of the content
+Scope: no longer called by CI in this repo (2026-10-16 dash policy: dashes are
+allowed except in sales/marketing copy, QFS client replies and candidate-facing
+messages; this repo has none, so no-em-dash.yml always passes). When run by
+hand it scans .md/.mdx/.txt files whose path contains one of the content
 directory segments below. Code files, YAML, SQL, .py, .ts, .tsx, etc. are
 explicitly allowed and are never scanned.
 
