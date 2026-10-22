@@ -234,7 +234,9 @@ Checklist when creating a new The Well web app:
 - Never use the word "platform"
 - No personalization fields (no recipient name, date, presenter)
 - Stress communication as a partnership value
-- Stats: 55 Days Median Time-to-Fill · 118+ RIA Firms Served
+- Stats: median search under eight weeks from kickoff to accepted offer (or 44.5 days with the label
+  "across a full quarter, kickoff to accepted offer") · the live RIA firm count. Never pair fill time with an
+  industry average; 55, 48 and the 100-day comparison are retired (Steve, 2026-10-20 and 2026-10-21).
   (the firm count is live: re-check `firms_served_count()` in Supabase before print)
 - AUM range: always $200M to $50B+
 
