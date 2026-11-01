@@ -9,3 +9,14 @@ secrets/
 
 # OS/editor cruft
 .DS_Store
+
+# Secrets and credentials (added by the 2026-11 security audit, finding SEC-NEW-163)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+.vault/
+*-adminsdk-*.json
+*service-account*.json
